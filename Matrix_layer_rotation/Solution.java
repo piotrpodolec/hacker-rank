@@ -1,108 +1,148 @@
 import java.io.*;
-import java.math.*;
-import java.security.*;
-import java.text.*;
 import java.util.*;
-import java.util.concurrent.*;
-import java.util.function.*;
-import java.util.regex.*;
 import java.util.stream.*;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class Solution {
     public static void main(String[] args) throws IOException {
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+        InputParser inputParser = new InputParser();
+        inputParser.readInputStream();
 
-        String[] firstMultipleInput = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
-
-        int m = Integer.parseInt(firstMultipleInput[0]);
-        int n = Integer.parseInt(firstMultipleInput[1]);
-        int r = Integer.parseInt(firstMultipleInput[2]);
-
-        List<List<Integer>> matrix = new ArrayList<>();
-
-        IntStream.range(0, m).forEach(i -> {
-            try {
-                matrix.add(
-                        Stream.of(bufferedReader.readLine().replaceAll("\\s+$", "").split(" "))
-                                .map(Integer::parseInt)
-                                .collect(toList())
-                );
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
-
-        Result.matrixRotation(matrix, r, m, n);
-
-        bufferedReader.close();
+        Rotator rotator = new Rotator();
+        rotator.rotateMatrix(
+                inputParser.getMatrix(),
+                inputParser.getRotations(),
+                inputParser.getMatrixHeight(),
+                inputParser.getMatrixWidth()
+        );
     }
 }
 
-class Result {
-    public static void matrixRotation(List<List<Integer>> matrix, int r, int m, int n) {
-        for (int i = 0; i < m; i++){
-            for (int j = 0; j < n; j++){
-                int depth = Math.min(j, Math.min(i, Math.min(m-i-1, n-j-1)));
-                int vMax = m - 1 - depth;
-                int hMax = n - 1 - depth;
-                int toMove = r % (2 * (n + m  - 2) - 8 * depth); // Removing excessive interations in the while loop;
-                int currentV = i;
-                int currentH = j;
-                while (toMove != 0){
-                    if (currentV == depth && currentH != hMax) { // on top of the ring
-                        if (toMove <= hMax - currentH) {
-                            // moving right with all that left and breaking the loop;
-                            currentH += toMove;
-                            break;
-                        } else {
-                            // moving right to the edge;
-                            toMove -= hMax - currentH;
-                            currentH = hMax;
-                        }
-                    }
-                    if (currentH == hMax && currentV != vMax) { // on the right of the ring
-                        if (toMove <= vMax - currentV) {
-                            // moving down with all that left and breaking the loop;
-                            currentV += toMove;
-                            break;
-                        } else {
-                            // moving down to the edge;
-                            toMove -= vMax - currentV;
-                            currentV = vMax;
-                        }
-                    }
-                    if (currentV == vMax && currentH != depth) {// on the bottom of the ring
-                        if (toMove <= currentH - depth) {
-                            // moving left with all that left and breaking the loop;
-                            currentH -= toMove;
-                            break;
-                        } else {
-                            // moving left to the edge;
-                            toMove -= currentH - depth;
-                            currentH = depth;
-                        }
-                    }
-                    if (currentH == depth && currentV != depth) { // on the left of the ring
-                        if (toMove <= currentV - depth) {
-                            // moving up with all that left and breaking the loop;
-                            currentV -= toMove;
-                            break;
-                        } else {
-                            // moving up to the edge;
-                            toMove -= currentV - depth;
-                            currentV = depth;
-                        }
-                    }
-                }
-                System.out.print(matrix.get(currentV).get(currentH));
-                if (j != n - 1) {
+class InputParser {
+    private List<List<Integer>> matrix;
+    private int matrixHeight;
+    private int matrixWidth;
+    private int rotations;
+    public void readInputStream() throws IOException{
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+        String[] firstMultipleInput = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
+
+        matrixHeight = Integer.parseInt(firstMultipleInput[0]);
+        matrixWidth = Integer.parseInt(firstMultipleInput[1]);
+        rotations = Integer.parseInt(firstMultipleInput[2]);
+        matrix = new ArrayList<>();
+
+        bufferedReader.close();
+
+        IntStream.range(0, matrixHeight).forEach(i -> {
+            try {
+                matrix.add(
+                        Stream.of(bufferedReader
+                                .readLine()
+                                .replaceAll("\\s+$", "")
+                                .split(" "))
+                                .map(Integer::parseInt)
+                                .collect(toList())
+                );
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public int getMatrixHeight() {
+        return matrixHeight;
+    }
+
+    public int getMatrixWidth() {
+        return matrixWidth;
+    }
+
+    public int getRotations() {
+        return rotations;
+    }
+
+    public List<List<Integer>> getMatrix() {
+        return matrix;
+    }
+}
+
+class Rotator {
+    private int currentRing;
+    private int ringHeight;
+    private int ringWidth;
+    private int ringMovement;
+    private int HeightPointer;
+    private int WidthPointer;
+    public void rotateMatrix(List<List<Integer>> matrix, int rotations, int height, int width) {
+        for (int i = 0; i < height; i++){
+            for (int j = 0; j < width; j++){
+                currentRing = Math.min(j, Math.min(i, Math.min(height-i-1, width-j-1)));
+                ringHeight = height - 1 - currentRing;
+                ringWidth = width - 1 - currentRing;
+                ringMovement = rotations % (2 * (width + height  - 2) - 8 * currentRing);
+                calculateCellSource(i, j);
+                System.out.print(matrix.get(HeightPointer).get(WidthPointer));
+                if (j != width - 1) {
                     System.out.print(" ");
                 }
             }
-            System.out.printf("\n");
+            System.out.print("\n");
         }
     }
-// subtracting depth from m and n, at the beginning and adding it at the end could be prettier but it will be harder to get in to the logic;
+
+    private void calculateCellSource(int i, int j) {
+        HeightPointer = i;
+        WidthPointer = j;
+        while (ringMovement != 0){
+            // on the top of the ring
+            if (HeightPointer == currentRing && WidthPointer != ringWidth) {
+                if (ringMovement <= ringWidth - WidthPointer) {
+                    // move right with all that left and break the loop;
+                    WidthPointer += ringMovement;
+                    break;
+                } else {
+                    // move right to the edge and continue down;
+                    ringMovement -= ringWidth - WidthPointer;
+                    WidthPointer = ringWidth;
+                }
+            }
+            // on the right side of the ring
+            if (WidthPointer == ringWidth && HeightPointer != ringHeight) {
+                if (ringMovement <= ringHeight - HeightPointer) {
+                    // moving down with all that left and breaking the loop;
+                    HeightPointer += ringMovement;
+                    break;
+                } else {
+                    // moving down to the edge and continue left;
+                    ringMovement -= ringHeight - HeightPointer;
+                    HeightPointer = ringHeight;
+                }
+            }
+            // on the bottom of the ring
+            if (HeightPointer == ringHeight && WidthPointer != currentRing) {
+                if (ringMovement <= WidthPointer - currentRing) {
+                    // moving left with all that left and breaking the loop;
+                    WidthPointer -= ringMovement;
+                    break;
+                } else {
+                    // moving left to the edge and continue up;
+                    ringMovement -= WidthPointer - currentRing;
+                    WidthPointer = currentRing;
+                }
+            }
+            // on the left side of the ring
+            if (WidthPointer == currentRing && HeightPointer != currentRing) {
+                if (ringMovement <= HeightPointer - currentRing) {
+                    // moving up with all that left and breaking the loop;
+                    HeightPointer -= ringMovement;
+                    break;
+                } else {
+                    // moving up to the edge and continue right in the next iteration of while loop;
+                    ringMovement -= HeightPointer - currentRing;
+                    HeightPointer = currentRing;
+                }
+            }
+        }
+    }
 }
